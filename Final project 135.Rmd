@@ -1,0 +1,219 @@
+---
+title: "Final project"
+author: "krisrtin zhang"
+date: "6/3/2019"
+output:
+  html_document:
+    df_print: paged
+header-includes: \usepackage{setspace}\doublespacing
+---
+# Introduction
+* Goal: Assessing whether pulmonary function in non-pathological population varies according to gender.
+
+* Mothods: Asked subjects to run on a treadmill until exhaustion. Samples of air were collected at definite intervals and the gas contents analyzed. The results on 4 measures of oxygen consumption for 25 males and 25 females.
+
+# Summary
+* V3 = resting volume $O_2$ (L/min)
+* V5 = resting volume $O_2$ (mL/kg/min)
+* V7 = maximum volume $O_2$ (L/min)
+* V9 = maximue volume $O_2$ (mL/kg/min)(△)
+△: Maximal oxygen consumption reflects cardiorespiratory fitness and endurance capacity in exercise performance.
+
+### a)the summary table of data
+Form data we got that for the non-pathological population, the mean of Resting O2 and the mean of Maximum O2 in L/min are around 3, but the gap between Resting O2 and the mean of Maximum O2 in ml/kg/min is large. It means that after heavy exercise, the oxygen consumption of non-pathological population increased.
+```{r,echo=FALSE, warning=FALSE}
+setwd("~/Desktop/")
+df2 <- read.csv("T6-12.dat",header = F, sep = ' ')
+df2 <- df2[,c(3,5,7,9,11)]
+summary(df2)
+```
+### c)A scatterplot with the DATA points Labelled by Resting and Maximum Group:
+Moreover,the resting volume O2 for Male and Female is kind same. After heavy exercise, male will need more O2 than female.
+```{r,echo=FALSE, warning=FALSE}
+plot(df2$V11, df2$V3, main="Oxygen-Consumption Data(Resting 0 2)")
+plot(df2$V11, df2$V7, main="Oxygen-Consumption Data(Maximum 0 2)")
+```
+
+# Analysis:
+## 1. Two-sample Hotelling T^2-test:
+### function:
+```{r,echo=FALSE,warning=FALSE}
+library(ICSNP)
+male <- df2[df2$V11 == "male",-5]
+female <- df2[df2$V11 == "female",-5]
+HotellingsT2(male, female)
+n<-c(25,25)
+p<-4
+xmean1<-colMeans(male)
+xmean2<-colMeans(female)
+d<-xmean1-xmean2
+S1<-var(male)
+S2<-var(female)
+Sp<-((n[1]-1)*S1+(n[2]-1)*S2)/(sum(n)-2)
+t2 <- t(d)%*%solve(sum(1/n)*Sp)%*%d
+t2
+alpha<-0.05
+cval <- (sum(n)-2)*p/(sum(n)-p-1)*qf(1-alpha,p,sum(n)-p-1)
+cval
+```
+we reject the $H_0$: $X_1$=$X_2$ at $\alpha$=0.05, so we use the simultaneous confidence intervals to check the significant components.
+
+## 2. Construct simultaneous confidence intervals 
+### a) simultaneous confidence intervals based on T^2
+### function:
+```{r, echo=FALSE,warning=FALSE}
+alpha<-0.05
+male <- df2[df2$V11 == "male",-5]
+female <- df2[df2$V11 == "female",-5]
+n<-c(50,50)
+p<-4
+xmean1<-colMeans(male)
+xmean2<-colMeans(female)
+d<-xmean1-xmean2
+S1<-var(male)
+S2<-var(female)
+Sp<-((n[1]-1)*S1+(n[2]-1)*S2)/(sum(n)-2)
+wd<-sqrt(((n[1]+n[2]-2)*p/(n[1]+n[2]-p-1))*qf(1-alpha,p,n[1]+n[2]-p-1))*sqrt(diag(Sp)*sum(1/n))
+Cis<-cbind(d-wd,d+wd)
+cat("95% simultaneous confidence interval","\n")
+Cis
+```
+Accordin to 95% simultaneous confidence interval based on $T^2$, we know only V5(the resting $O_2$(ml/kg/min)) cover 0.So V3(Resting $O_2$(l/min)), V7(max $O_2$(l/min)),V9(max $O_2$(ml/kg/min)) have significant differences. 
+
+### b)Bonferroni simultaneous confidence intervals:
+
+```{r,echo=FALSE,warning=FALSE}
+wd.b<- qt(1-alpha/(2*p),n[1]+n[2]-2) *sqrt(diag(Sp)*sum(1/n))
+Cis.b<-cbind(d-wd.b,d+wd.b)
+cat("95% Bonferroni simultaneous confidence interval","\n")
+Cis.b
+```
+Accordin to 95% simultaneous confidence interval based on Bonferroni correction, the answer is same, only V5(the resting $O_2$(ml/kg/min)) cover 0. However, the Bonferroni is narrower.
+## 3. Principal Component Analysis
+### a) Showing the coefficients of the components:
+```{r,echo=FALSE,warning=FALSE}
+attach(df2)
+df2.pc <- princomp(df2[,1:4], cor=T)
+summary(df2.pc,loadings=T)
+```
+From the Cumulative Proportion we got Comp.1 = 0.6161, and Comp.2 = 0.9261, 0.9261 is $>$ 0.9, we choose first and second Peincipal Component.
+
+### b)A scree plot:
+```{r,echo=FALSE,warning=FALSE}
+plot(1:(length(df2.pc$sdev)),  (df2.pc$sdev)^2, type='b',
+     main="Scree Plot", xlab="Number of Components", ylab="Eigenvalue Size")
+```
+the "elbow" occur at point 3, but from the summery we got PC1 and PC2 is good enough for us.
+
+### c)Plotting the PC scores for the sample data in the space of the first two principal components:
+```{r,echo=FALSE,warning=FALSE}
+par(pty="s")
+plot(df2.pc$scores[,1], df2.pc$scores[,2], ylim=range(df2.pc$scores[,1]), 
+     xlab="PC 1", ylab="PC 2", type ='n', lwd=2)
+# labeling points with IDs for df2s:
+text(df2.pc$scores[,1], df2.pc$scores[,2], labels=V11, cex=0.7, lwd=2,
+     col=c(rep("red", times = 25), rep("blue", times=25)) )
+```
+Then from this plot, for PC1 male is on the positive side and female is on the negative saide; on the contrary for PC2 female is on the positive side.
+for PC1, male has larger score than female, it means PC1 is more important to discribe male. In same way, for PC2, female has large score than male, and PC2 is more important to discribe female.
+### e)
+```{r,echo=FALSE,warning=FALSE,force=TRUE}
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+X<-df2[,1:4]
+groupid<-df2[,5]
+ggbiplot(df2.pc,ellipse=TRUE, groups=groupid)
+```
+The male form a distinct cluster to the right and female form a distinct cluster to the left. V3(resting volume $O_2$ (L/min)), V5(resting volume $O_2$ (L/min)) are slight toward male population, V7(maximum volume $O_2$ (L/min)),V9(maximue volume $O_2$ (mL/kg/min)) total toward female population.
+## 4.Linear discriminant analysis
+### a)compute pooled estimate for the covariance matrix and plot decision boundary
+```{r,echo=FALSE,warning=FALSE}
+library(rrcov)
+par(mar=c(4,4,2,1))
+plot(df2$V5,df2$V9,xlab="resting volume O2(ml/kg/min)",ylab="Maximum volume O2(ml/kg/min)",
+     pch=rep(c(18,20),each=25),col=rep(c(2,4),each=25),main="")
+legend("topright",legend=c("Male","Female"),pch=c(18,20),col=c(2,4),cex=0.8)
+
+x1<-df2[1:25,c("V5","V9")]
+x2<-df2[26:50,c("V5","V9")]
+# compute sample mean vectors:
+x1.mean<-colMeans(x1)
+x2.mean<-colMeans(x2)
+# compute pooled estimate for the covariance matrix:
+S.u<-24*(var(x1)+var(x2))/48
+w<-solve(S.u)%*%(x1.mean-x2.mean)
+w0<--(x1.mean+x2.mean)%*%w/2
+lines(df2[,2],-(w[1]*df2[,2]+w0)/w[2])
+```
+This line is divied Male and Female tow population.
+### b)determine how well the model fits
+After we got the plots, we determine how well the model fits.
+```{r,echo=FALSE,warning=FALSE}
+library(MASS)
+df2.lda <- lda(V11~.,data=df2)
+df2.lda# this is very important
+df2.pred <- predict(df2.lda)
+# Confusion matrix
+table(df2$V11,df2.pred$class)
+```
+
+### c) A Stacked Histogram of the LDA Values
+```{r,echo=FALSE,warning=FALSE}
+ldahist(data = df2.pred$x[,1], g=df2$V11)
+```
+For Female group all the sample are positivebut except two sample on the positive.
+for Male group all sample are positive expect one sample.
+# Interpretation:
+## 1.Two-sample Hotelling’s $T_2$ test: 
+since we only have two sample, we start at Hotelling's $T_2$ test. The result for $H_0$: $X_1$=$X_2$ at $\alpha$=0.05 is reject. It's means the overall mean of female is not equal to overall mean of male.Since we reject the null,  we use the simultaneous confidence intervals to check significant components.
+## Construct simultaneous confidence intervals 
+
+
+In T^2
+we got V5(the resting $O_2$(ml/kg/min)) [-0.7431953, 1.0447953], it cover 0 shows us that the mean of male's resting $O_2$ is equal to mean of female's resting O2.
+V3  [0.0250176, 0.1421824]
+it not cover 0 shows us that the mean of male's resting $O_2$ (l/min)is not equal to mean of female's resting O2.
+V7  [1.0298048  1.7149952]
+it not cover 0 shows us that the mean of male's max $O_2$ (l/min)is not equal to mean of female's max O2.
+V9  7.2671197 15.2640803
+it not cover 0 shows us that the mean of male's resting $O_2$ (ml/kg/min)is not equal to mean of female's resting O2.
+
+In Bonferroni correction
+we got the same conclution but the for test miu1, miu2 miu3, miu4, Bonferroni is narror than T^2.
+
+
+PCA
+Since we have 4 variables, we would like to explain the variance-covariance structure of a set of variables by a few linear combinations of these variables.we got Comp.1 = 0.6161, and Comp.2 = 0.9261, 0.9261 is $>$ 0.9, we choose first and second Peincipal Component. So PC1 is the O2 proceess from rest to end of the excixce, it seems that 61.6% of the variation in the data are related to fifferences in this process. 
+
+
+
+
+
+
+
+
+
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#One can display the 3-dimensional scatterplots.
+library(scatterplot3d)
+#install.packages("scatterplot3d")
+par(mfrow = c(2, 2))
+mar0 = c(2, 3, 2, 3)
+scatterplot3d(df2[, 1], df2[, 2], df2[, 3], mar = mar0, color = c("blue",
+                                                                     "black", "red")[df2$V11], pch = 19)
+scatterplot3d(df2[, 2], df2[, 3], df2[, 4], mar = mar0, color = c("blue",
+                                                                     "black", "red")[df2$V11], pch = 19)
+scatterplot3d(df2[, 3], df2[, 4], df2[, 1], mar = mar0, color = c("blue",
+                                                                     "black", "red")[df2$V11], pch = 19)
+scatterplot3d(df2[, 4], df2[, 1], df2[, 2], mar = mar0, color = c("blue",
+                                                                    "black", "red")[df2$V11], pch = 19)
+detach(package:scatterplot3d)
+```
+From the 3d scatterplot, we comparie three at one time then we got four plot, and from the plot we can see clearly male and female are saparated by a bound line.
+
+```{r,ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
